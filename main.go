@@ -3,10 +3,13 @@ package main
 import (
 	"final-project/database"
 	"final-project/routes"
+	"os"
 )
 
 func main() {
 	database.StartDB()
-	r := routes.StartApp()
-	r.Run(":8080")
+	
+	var PORT = os.Getenv("PORT")
+
+	routes.StartApp().Run(":" + PORT)
 }
