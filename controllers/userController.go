@@ -153,6 +153,15 @@ func DeleteUser(c *gin.Context) {
     tx := db.Begin()
 
     
+    if err := tx.Exec("DELETE FROM social_media WHERE user_id = ?", userID).Error; err != nil {
+        tx.Rollback()
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Internal Server Error",
+            "message": "Failed to delete associated social_media",
+        })
+        return
+    }
+
     if err := tx.Exec("DELETE FROM comments WHERE user_id = ?", userID).Error; err != nil {
         tx.Rollback()
         c.JSON(http.StatusInternalServerError, gin.H{
