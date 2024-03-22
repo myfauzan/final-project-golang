@@ -9,6 +9,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -125,34 +126,48 @@ func UpdateUser(c *gin.Context) {
 }
 
 func DeleteUser(c *gin.Context) {
-	db := database.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
-	contentType := helpers.GetContentType(c)
-	User := models.User{}
+    db := database.GetDB()
+    userData := c.MustGet("userData").(jwt.MapClaims)
+    contentType := helpers.GetContentType(c)
+    User := models.User{}
 
-	userId, _ := strconv.Atoi(c.Param("userId"))
-	id := uint(userData["id"].(float64))
+    id := uint(userData["id"].(float64))
+	
+    userId, err := strconv.Atoi(c.Param("userId"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "err":     "Bad Request",
+            "message": "Invalid user ID",
+        })
+        return
+    }
 
-	if contentType == appJSON {
-		c.ShouldBindJSON(&User)
-	} else {
-		c.ShouldBind(&User)
-	}
+    if contentType == appJSON {
+        c.ShouldBindJSON(&User)
+    } else {
+        c.ShouldBind(&User)
+    }
 
-	User.ID = uint(id)
+    if uint(userId) != id {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "err":     "Unauthorized",
+            "message": "You are not authorized to delete this user",
+        })
+        return
+    }
 
-	err := db.Debug().Model(&User).Where("id = ?", userId).Delete(User).Error
+    User.ID = uint(userId)
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"err": "Bad Request",
-			"message": err.Error(),
-		})
-		return
-	}
+    if err := db.Debug().Select(clause.Associations).Delete(&User).Error; err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "err":     "Bad Request",
+            "message": err.Error(),
+        })
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"messege": "Your account has been succesfully deleted",
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Your account has been successfully deleted",
+    })
 }
 
