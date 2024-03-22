@@ -26,7 +26,7 @@ func UserAuthorization() gin.HandlerFunc {
 		id := uint(userData["id"].(float64))
 		User := models.User{}
 
-		err = db.Select("id").Where("id = ?", userID).First(&User, uint(id)).Error
+		err = db.Select("id").First(&User, uint(id)).Error
 
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
