@@ -9,7 +9,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm/clause"
 )
 
 var (
@@ -142,7 +141,7 @@ func DeleteUser(c *gin.Context) {
 
 	User.ID = uint(id)
 
-	err := db.Select(clause.Associations).Where("id = ?", userId).Delete(&User).Error
+	err := db.Debug().Model(&User).Where("id = ?", userId).Delete(User).Error
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
