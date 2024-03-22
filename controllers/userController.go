@@ -9,7 +9,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm/clause"
 )
 
 var (
@@ -129,45 +128,66 @@ func DeleteUser(c *gin.Context) {
     db := database.GetDB()
     userData := c.MustGet("userData").(jwt.MapClaims)
     contentType := helpers.GetContentType(c)
-    User := models.User{}
+    userID := uint(userData["id"].(float64))
 
-    id := uint(userData["id"].(float64))
-	
-    userId, err := strconv.Atoi(c.Param("userId"))
+	_ = contentType
+
+    
+    requestedUserID, err := strconv.Atoi(c.Param("userId"))
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
-            "err":     "Bad Request",
+            "error":   "Bad Request",
             "message": "Invalid user ID",
         })
         return
     }
-
-    if contentType == appJSON {
-        c.ShouldBindJSON(&User)
-    } else {
-        c.ShouldBind(&User)
-    }
-
-    if uint(userId) != id {
+    if uint(requestedUserID) != userID {
         c.JSON(http.StatusUnauthorized, gin.H{
-            "err":     "Unauthorized",
+            "error":   "Unauthorized",
             "message": "You are not authorized to delete this user",
         })
         return
     }
 
-    User.ID = uint(userId)
+    
+    tx := db.Begin()
 
-    if err := db.Debug().Select(clause.Associations).Delete(&User).Error; err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{
-            "err":     "Bad Request",
-            "message": err.Error(),
+    
+    if err := tx.Exec("DELETE FROM comments WHERE user_id = ?", userID).Error; err != nil {
+        tx.Rollback()
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Internal Server Error",
+            "message": "Failed to delete associated comments",
         })
         return
     }
+
+    
+    if err := tx.Exec("DELETE FROM photos WHERE user_id = ?", userID).Error; err != nil {
+        tx.Rollback()
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Internal Server Error",
+            "message": "Failed to delete associated photos",
+        })
+        return
+    }
+
+    
+    if err := tx.Exec("DELETE FROM users WHERE id = ?", userID).Error; err != nil {
+        tx.Rollback()
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Internal Server Error",
+            "message": "Failed to delete user",
+        })
+        return
+    }
+
+    
+    tx.Commit()
 
     c.JSON(http.StatusOK, gin.H{
         "message": "Your account has been successfully deleted",
     })
 }
+
 
