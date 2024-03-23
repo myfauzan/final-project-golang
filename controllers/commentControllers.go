@@ -138,34 +138,66 @@ func UpdateComment(c *gin.Context) {
 }
 
 func DeleteComment(c *gin.Context) {
-	db := database.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
-	contentType := helpers.GetContentType(c)
-	Comment := models.Comment{}
+    db := database.GetDB()
+    userData := c.MustGet("userData").(jwt.MapClaims)
+    contentType := helpers.GetContentType(c)
+    Comment := models.Comment{}
 
-	commentId, _ := strconv.Atoi(c.Param("commentId"))
-	id := uint(userData["id"].(float64))
+    commentId, err := strconv.Atoi(c.Param("commentId"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Bad Request",
+            "message": "Invalid comment ID",
+        })
+        return
+    }
 
-	if contentType == appJSON {
-		c.ShouldBindJSON(&Comment)
-	} else {
-		c.ShouldBind(&Comment)
-	}
+    id := uint(userData["id"].(float64))
 
-	Comment.ID = uint(id)
+    if contentType == appJSON {
+        if err := c.ShouldBindJSON(&Comment); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error":   "Bad Request",
+                "message": err.Error(),
+            })
+            return
+        }
+    } else {
+        if err := c.ShouldBind(&Comment); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error":   "Bad Request",
+                "message": err.Error(),
+            })
+            return
+        }
+    }
 
-	err := db.Model(&Comment).Where("id = ?", commentId).Delete(Comment).Error
+    err = db.Where("id = ?", commentId).First(&Comment).Error
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{
+            "error":   "Not Found",
+            "message": "Comment not found",
+        })
+        return
+    }
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"err": "Bad Request",
-			"message": err.Error(),
-		})
-		return
-	}
+    if uint(Comment.UserID) != id {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "error":   "Unauthorized",
+            "message": "You are not authorized to delete this comment",
+        })
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"messege": "Your comment has been succesfully deleted",
-	})
+    if err := db.Delete(&Comment).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Internal Server Error",
+            "message": err.Error(),
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Your comment has been successfully deleted",
+    })
 }
-

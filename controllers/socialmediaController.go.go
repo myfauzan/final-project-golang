@@ -128,33 +128,66 @@ func UpdateSocialMedia(c *gin.Context) {
 }
 
 func DeleteSocialMedia(c *gin.Context) {
-	db := database.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
-	contentType := helpers.GetContentType(c)
-	SocialMedia := models.SocialMedia{}
+    db := database.GetDB()
+    userData := c.MustGet("userData").(jwt.MapClaims)
+    contentType := helpers.GetContentType(c)
+    SocialMedia := models.SocialMedia{}
 
-	socialMediaId, _ := strconv.Atoi(c.Param("socialMediaId"))
-	id := uint(userData["id"].(float64))
+    socialMediaId, err := strconv.Atoi(c.Param("socialMediaId"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Bad Request",
+            "message": "Invalid social media ID",
+        })
+        return
+    }
 
-	if contentType == appJSON {
-		c.ShouldBindJSON(&SocialMedia)
-	} else {
-		c.ShouldBind(&SocialMedia)
-	}
+    id := uint(userData["id"].(float64))
 
-	SocialMedia.ID = uint(id)
+    if contentType == appJSON {
+        if err := c.ShouldBindJSON(&SocialMedia); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error":   "Bad Request",
+                "message": err.Error(),
+            })
+            return
+        }
+    } else {
+        if err := c.ShouldBind(&SocialMedia); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error":   "Bad Request",
+                "message": err.Error(),
+            })
+            return
+        }
+    }
 
-	err := db.Model(&SocialMedia).Where("id = ?", socialMediaId).Delete(SocialMedia).Error
+    err = db.Where("id = ?", socialMediaId).First(&SocialMedia).Error
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{
+            "error":   "Not Found",
+            "message": "SocialMedia not found",
+        })
+        return
+    }
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"err": "Bad Request",
-			"message": err.Error(),
-		})
-		return
-	}
+    if uint(SocialMedia.UserID) != id {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "error":   "Unauthorized",
+            "message": "You are not authorized to delete this social media",
+        })
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"messege": "Your social media has been succesfully deleted",
-	})
+    if err := db.Delete(&SocialMedia).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Internal Server Error",
+            "message": err.Error(),
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Your social media has been successfully deleted",
+    })
 }
