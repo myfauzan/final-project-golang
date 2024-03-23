@@ -33,7 +33,6 @@ func CreateComment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"err": "Bad Request",
 			"message": err.Error(),
-			"json": Comment,
 		})
 		return
 	}
