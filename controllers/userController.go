@@ -88,51 +88,63 @@ func UserLogin(c *gin.Context) {
 }
 
 func UpdateUser(c *gin.Context) {
-	db := database.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
-	contentType := helpers.GetContentType(c)
-	User := models.User{}
+    db := database.GetDB()
+    userData := c.MustGet("userData").(jwt.MapClaims)
+    contentType := helpers.GetContentType(c)
+    User := models.User{}
 
-	userId, _ := strconv.Atoi(c.Param("userId"))
-	id := uint(userData["id"].(float64))
+    id := uint(userData["id"].(float64))
 
-	if contentType == appJSON {
-		c.ShouldBindJSON(&User)
-	} else {
-		c.ShouldBind(&User)
-	}
+    userId, err := strconv.Atoi(c.Param("userId"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Bad Request",
+            "message": "Invalid user ID",
+        })
+        return
+    }
+    
+    if uint(userId) != id {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "error":   "Unauthorized",
+            "message": "You are not authorized to update this user",
+        })
+        return
+    }
 
-	User.ID = uint(id)
-	User.Age = int(userData["age"].(float64))
+    if contentType == appJSON {
+        c.ShouldBindJSON(&User)
+    } else {
+        c.ShouldBind(&User)
+    }
 
-	err := db.Model(&User).Where("id = ?", userId).Updates(models.User{UserName: User.UserName, Email: User.Email}).Error
+    User.ID = uint(userId)
+    User.Age = int(userData["age"].(float64))
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"err": "Bad Request",
-			"message": err.Error(),
-		})
-		return
-	}
+    err = db.Model(&User).Where("id = ?", userId).Updates(models.User{UserName: User.UserName, Email: User.Email}).Error
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Bad Request",
+            "message": err.Error(),
+        })
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"id": User.ID,
-		"email": User.Email,
-		"username": User.UserName,
-		"age": User.Age,
-		"update_at": User.UpdatedAt,
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "id":         User.ID,
+        "email":      User.Email,
+        "username":   User.UserName,
+        "age":        User.Age,
+        "update_at":  User.UpdatedAt,
+    })
 }
+
 
 func DeleteUser(c *gin.Context) {
     db := database.GetDB()
     userData := c.MustGet("userData").(jwt.MapClaims)
-    contentType := helpers.GetContentType(c)
     userID := uint(userData["id"].(float64))
-
-	_ = contentType
-
-    
+	
     requestedUserID, err := strconv.Atoi(c.Param("userId"))
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
