@@ -123,33 +123,66 @@ func UpdatePhoto(c *gin.Context) {
 }
 
 func DeletePhoto(c *gin.Context) {
-	db := database.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
-	contentType := helpers.GetContentType(c)
-	Photo := models.Photo{}
+    db := database.GetDB()
+    userData := c.MustGet("userData").(jwt.MapClaims)
+    contentType := helpers.GetContentType(c)
+    Photo := models.Photo{}
 
-	photoId, _ := strconv.Atoi(c.Param("photoId"))
-	id := uint(userData["id"].(float64))
+    photoId, err := strconv.Atoi(c.Param("photoId"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Bad Request",
+            "message": "Invalid photo ID",
+        })
+        return
+    }
 
-	if contentType == appJSON {
-		c.ShouldBindJSON(&Photo)
-	} else {
-		c.ShouldBind(&Photo)
-	}
+    id := uint(userData["id"].(float64))
 
-	Photo.ID = uint(id)
+    if contentType == appJSON {
+        if err := c.ShouldBindJSON(&Photo); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error":   "Bad Request",
+                "message": err.Error(),
+            })
+            return
+        }
+    } else {
+        if err := c.ShouldBind(&Photo); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error":   "Bad Request",
+                "message": err.Error(),
+            })
+            return
+        }
+    }
 
-	err := db.Model(&Photo).Where("id = ?", photoId).Delete(Photo).Error
+    err = db.Where("id = ?", photoId).First(&Photo).Error
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{
+            "error":   "Not Found",
+            "message": "Photo not found",
+        })
+        return
+    }
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"err": "Bad Request",
-			"message": err.Error(),
-		})
-		return
-	}
+    if uint(Photo.UserID) != id {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "error":   "Unauthorized",
+            "message": "You are not authorized to delete this photo",
+        })
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"messege": "Your photo has been succesfully deleted",
-	})
+    if err := db.Delete(&Photo).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Internal Server Error",
+            "message": err.Error(),
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Your photo has been successfully deleted",
+    })
 }
