@@ -93,8 +93,10 @@ func UpdateUser(c *gin.Context) {
     contentType := helpers.GetContentType(c)
     User := models.User{}
 
+    // Mendapatkan ID pengguna dari token JWT
     id := uint(userData["id"].(float64))
 
+    // Mengkonversi userID dari string ke int
     userId, err := strconv.Atoi(c.Param("userId"))
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
@@ -104,6 +106,7 @@ func UpdateUser(c *gin.Context) {
         return
     }
     
+    // Memeriksa apakah pengguna memiliki izin untuk melakukan pembaruan
     if uint(userId) != id {
         c.JSON(http.StatusUnauthorized, gin.H{
             "error":   "Unauthorized",
@@ -112,15 +115,18 @@ func UpdateUser(c *gin.Context) {
         return
     }
 
+    // Melakukan binding data sesuai dengan tipe konten
     if contentType == appJSON {
         c.ShouldBindJSON(&User)
     } else {
         c.ShouldBind(&User)
     }
 
+    // Menetapkan ID dan umur pengguna
     User.ID = uint(userId)
     User.Age = int(userData["age"].(float64))
 
+    // Melakukan pembaruan data pengguna di database
     err = db.Model(&User).Where("id = ?", userId).Updates(models.User{UserName: User.UserName, Email: User.Email}).Error
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
@@ -130,6 +136,7 @@ func UpdateUser(c *gin.Context) {
         return
     }
 
+    // Mengembalikan data pengguna yang diperbarui
     c.JSON(http.StatusOK, gin.H{
         "id":         User.ID,
         "email":      User.Email,
