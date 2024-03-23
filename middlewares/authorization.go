@@ -36,7 +36,7 @@ func UserAuthorization() gin.HandlerFunc {
 			return
 		}
 
-		if int(User.ID) != userID {
+		if int(userID) != int(id) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "Unauthorized",
 				"message": "you are not allowed to access this data",
